@@ -20,20 +20,53 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/fs.h>
+#include <asm/uaccess.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Joe Turner");
 MODULE_DESCRIPTION("Posix Signal Driver");
 MODULE_SUPPORTED_DEVICE("sigdrv");
 
+#define DEVICE_NAME "sigdev"
+#define SUCCESS 0
+
+static int major;
+static int device_open = 0;
+
+static int sigdrv_open(struct inode *inode, struct file *filp)
+{
+	try_module_get(THIS_MODULE);
+	return SUCCESS;
+}
+
+static int sigdrv_release(struct inode *inode, struct file *filp)
+{
+	module_put(THIS_MODULE);
+	return SUCCESS;
+}
+
+static struct file_operations fops =
+{
+	.open = sigdrv_open,
+	.release = sigdrv_release
+};
+
 static int __init init_sigdrv(void)
 {
+	major = register_chrdev(0, DEVICE_NAME, &fops);
+	if (major < 0)
+	{
+		printk(KERN_ALERT "Failed to register device with %d\n", major);
+		return major;
+	}
     printk( KERN_INFO "sigdrv driver loaded.\n");
     return 0;
 }
 
 static __exit void cleanup_sigdrv(void)
 {
+    unregister_chrdev(major, DEVICE_NAME);
     printk( KERN_INFO "sigdrv unloaded.\n");
 }
 
